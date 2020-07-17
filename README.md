@@ -1,4 +1,4 @@
-# Twitter Unfollow Alerts
+# Twitter Unfollower Alerts
 
 _WORK IN PROGRESS_
 
