@@ -6,23 +6,45 @@ Transform:
 - AWS::Serverless-2016-10-31
 
 Resources:
-  UnfollowAlerter:
+  UpdateCurrentFollowers:
     Type: AWS::Serverless::Function
     Properties:
       Runtime: nodejs12.x
-      Handler: src/handlers/unfollower-alerter.handler
+      Handler: src/handlers/update-current-followers.handler
       Events:
         CloudWatchEvent:
           Type: Schedule
           Properties:
-            Schedule: rate(5 minutes)
+            Schedule: cron(0 22 * * ? *)
+      MemorySize: 128
+      Timeout: 100
+  ReconcileAndEmail:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: nodejs12.x
+      Handler: src/handlers/reconcile-and-email.handler
+      Events:
+        CloudWatchEvent:
+          Type: Schedule
+          Properties:
+            Schedule: cron(30 22 * * ? *)
       MemorySize: 128
       Timeout: 100
 
-  Followers:
+  FollowersTable:
     Type: AWS::Serverless::SimpleTable
     Properties:
       TableName: followers
       PrimaryKey:
        Name: userId
        Type: String
+  UnfollowerAlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: UnfollowerAlertTopic
+  UnfollowerAlertSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: <replace with your email address>
+      Protocol: email
+      TopicArn: !Ref 'UnfollowerAlertTopic'

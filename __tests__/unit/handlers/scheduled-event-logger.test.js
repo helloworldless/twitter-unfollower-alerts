@@ -1,5 +1,5 @@
-// Import all functions from unfollower-alerter.js
-const scheduledEventLogger = require('../../../src/handlers/unfollower-alerter.js');
+// Import all functions from update-current-followers.js
+const scheduledEventLogger = require('../../../src/handlers/update-current-followers.js');
 
 describe('Test for sqs-payload-logger', function () {
   // This test invokes the scheduled-event-logger Lambda function and verifies that the received payload is logged

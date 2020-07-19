@@ -3,9 +3,8 @@ version = 0.1
 [default.deploy]
 [default.deploy.parameters]
 stack_name = "twitter-unfollower-alerts"
-s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-3ei12ij5rlgp"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-dhikgw7msdm8"
 s3_prefix = "twitter-unfollower-alerts"
 region = "us-east-1"
 confirm_changeset = true
 capabilities = "CAPABILITY_IAM"
-
