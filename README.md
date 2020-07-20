@@ -1,12 +1,19 @@
 # Twitter Unfollower Alerts
 
-Get a daily email digest of Twitter unfollowers. Fully #serverless!
+Get a daily email digest of Twitter unfollowers. Built with AWS Lambda, DynamoDB, and SNS.
+
+## Deploy
+
+1. Run `sam build`
+1. Run `sam deploy`
 
 ## Issues/Caveats
 
 ### Prerequisites
 
-TODO
+- AWS account
+- AWS SDK installed and configured
+- SAM installed
 
 ### Scheduling
 
@@ -18,7 +25,6 @@ Also, as it's written it only supports running once a day, since it tracks the `
  
 Look into publishing an SQS message in `update-current-followers` and having
  `reconcile-and-email` listen to that message.
-
 
 ### Access
 
@@ -44,7 +50,12 @@ Must confirm SNS subscription by clicking link in email: **AWS Notification - Su
  The first email triggers this subscription email, so the first unfollower alert email
   is not received.
   
-  
+ 
+### Package and Deploy
+
+- Add webpack
+- Consider Serverless framework
+
 ## Troubleshooting
 
 Manually add an item to the `followers` table:
