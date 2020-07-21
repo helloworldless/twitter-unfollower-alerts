@@ -10,4 +10,7 @@ module.exports = {
     initializeSnsClient: () => {
         return new AWS.SNS();
     },
+    initializeSqsClient: () => {
+        return new AWS.SQS();
+    },
 };

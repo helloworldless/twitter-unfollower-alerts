@@ -4,7 +4,6 @@ const {
 } = require('../aws-sdk-helper');
 
 const {
-    getCurrentDate,
     dynamoTableName,
     twitterUserToString,
     getEnv,
@@ -14,7 +13,6 @@ const dynamo = initializeDynamoClient();
 const sns = initializeSnsClient();
 
 const TableName = dynamoTableName;
-const currentDate = getCurrentDate();
 
 const region = getEnv('AWS_REGION');
 const accountId = getEnv('AWS_ACCOUNT_ID');
@@ -25,30 +23,29 @@ const topicArn = `arn:aws:sns:${region}:${accountId}:${topic}`;
 exports.handler = async (event) => {
     try {
         console.log('Event', JSON.stringify(event, null, 2));
-        const unfollowers = await findUnfollowers();
-        console.log(`Found unfollowers count=${unfollowers.length}`);
+        const { asOfDateTime } = JSON.parse(event.Records[0].body);
 
-        const unfollowersMessage = unfollowers
-            .map(twitterUserToString)
-            .join('\n');
+        console.log(`asOfDateTime=${asOfDateTime}`);
+        const unfollowers = await findUnfollowers(asOfDateTime);
+        console.log(`Found count=${unfollowers.length} unfollowers`);
+
+        const unfollowersMessage = unfollowers.length
+            ? unfollowers.map(twitterUserToString).join('\n')
+            : 'No unfollowers since yesterday!';
         console.log('unfollowersMessage', unfollowersMessage);
 
         const params = {
             TopicArn: topicArn,
-            Message: unfollowers.length
-                ? unfollowersMessage
-                : 'No unfollowers since yesterday!',
+            Message: unfollowersMessage,
         };
 
         console.log(`Publish SNS message to topic=${topic}`);
         const result = await sns.publish(params).promise();
         console.log('SNS publish result: ', JSON.stringify(result, null, 2));
 
-        console.log('Started - Deleting unfollowers');
-        for (const unfollower of unfollowers) {
-            await deleteUnfollower(unfollower);
+        if (unfollowers.length) {
+            await deleteUnfollowers(unfollowers);
         }
-        console.log('Completed - Deleting unfollowers');
 
         return unfollowers;
     } catch (e) {
@@ -58,11 +55,11 @@ exports.handler = async (event) => {
     }
 };
 
-async function findUnfollowers() {
+async function findUnfollowers(asOfDateTime) {
     const findUnfollowersParams = {
         TableName,
-        FilterExpression: 'asOfDate < :asOfDate',
-        ExpressionAttributeValues: { ':asOfDate': currentDate },
+        FilterExpression: 'asOfDateTime < :asOfDateTime',
+        ExpressionAttributeValues: { ':asOfDateTime': asOfDateTime },
     };
 
     const unfollowers = await dynamo.scan(findUnfollowersParams).promise();
@@ -74,6 +71,14 @@ async function findUnfollowers() {
     }
 
     return unfollowers.Items;
+}
+
+async function deleteUnfollowers(unfollowers) {
+    console.log('Started - Deleting unfollowers');
+    for (const unfollower of unfollowers) {
+        await deleteUnfollower(unfollower);
+    }
+    console.log('Completed - Deleting unfollowers');
 }
 
 async function deleteUnfollower(unfollower) {

@@ -1,28 +1,33 @@
 {
-  "name": "twitter-unfollower-alerts",
-  "description": "Get email digest of unfollowers",
-  "version": "1.0.0",
-  "license": "MIT",
-  "scripts": {
-    "test": "jest",
-    "deleteStack": "aws cloudformation delete-stack --stack-name twitter-unfollower-alerts"
-  },
-  "dependencies": {
-    "aws-sdk": "^2.714.2",
-    "twitter-lite": "^0.14.0"
-  },
-  "devDependencies": {
-    "@shelf/jest-dynamodb": "^1.7.0",
-    "cross-env": "^7.0.2",
-    "jest": "^24.7.1",
-    "jest-extended": "^0.11.5",
-    "prettier": "^2.0.5"
-  },
-  "jest": {
-    "preset": "@shelf/jest-dynamodb",
-    "setupFiles": [
-      "./setupTests.js"
-    ],
-    "setupFilesAfterEnv": ["jest-extended"]
-  }
+    "name": "twitter-unfollower-alerts",
+    "description": "Get email digest of unfollowers",
+    "version": "1.0.0",
+    "license": "MIT",
+    "scripts": {
+        "test": "jest",
+        "deleteStack": "aws cloudformation delete-stack --stack-name twitter-unfollower-alerts"
+    },
+    "dependencies": {
+        "aws-sdk": "^2.714.2",
+        "twitter-lite": "^0.14.0"
+    },
+    "devDependencies": {
+        "@shelf/jest-dynamodb": "^1.7.0",
+        "cross-env": "^7.0.2",
+        "jest": "^24.7.1",
+        "jest-extended": "^0.11.5",
+        "prettier": "^2.0.5"
+    },
+    "jest": {
+        "preset": "@shelf/jest-dynamodb",
+        "testMatch": [
+          "<rootDir>/src/**/*.test.[jt]s"
+        ],
+        "setupFiles": [
+            "./setupTests.js"
+        ],
+        "setupFilesAfterEnv": [
+            "jest-extended"
+        ]
+    }
 }

@@ -2,8 +2,8 @@ const util = require('./util');
 const twitterHelper = require('./twitter-helper');
 
 const TableName = util.dynamoTableName;
-const currentDate = '2020-07-19';
-const previousDate = '2020-07-18';
+const currentDateTime = '2020-07-20T23:00:00.000Z';
+const previousDateTime = '2020-07-20T22:00:00.000Z';
 jest.mock('./util');
 
 // trying to use original twitterUserToString causes RangeError: Maximum call stack size exceeded at mockConstructor...
@@ -12,7 +12,7 @@ util.twitterUserToString.mockImplementation(
         `User {id=${id_str}; name=${name}; handle=${screen_name}}`
 );
 util.getEnv.mockImplementation((key) => `fake-${key}`);
-util.getCurrentDate.mockImplementation(() => currentDate);
+util.getCurrentDateTime.mockImplementation(() => currentDateTime);
 
 jest.mock('./twitter-helper');
 
@@ -42,21 +42,21 @@ twitterHelper.initializeTwitterClient.mockImplementation(() => {
 
 const awsSdkHelper = require('./aws-sdk-helper');
 jest.mock('./aws-sdk-helper');
-let dynamo;
+
+const isTest = process.env.JEST_WORKER_ID;
+const { DocumentClient } = require('aws-sdk/clients/dynamodb');
+const config = {
+    convertEmptyValues: true,
+    ...(isTest && {
+        endpoint: 'localhost:8000',
+        sslEnabled: false,
+        region: 'local-env',
+    }),
+};
+
+const dynamo = new DocumentClient(config);
 
 awsSdkHelper.initializeDynamoClient.mockImplementation(() => {
-    const isTest = process.env.JEST_WORKER_ID;
-    const { DocumentClient } = require('aws-sdk/clients/dynamodb');
-    const config = {
-        convertEmptyValues: true,
-        ...(isTest && {
-            endpoint: 'localhost:8000',
-            sslEnabled: false,
-            region: 'local-env',
-        }),
-    };
-
-    dynamo = new DocumentClient(config);
     return dynamo;
 });
 
@@ -65,6 +65,18 @@ awsSdkHelper.initializeSnsClient.mockImplementation(() => {
     return {
         publish: snsMock.mockReturnValue({
             promise: jest.fn().mockResolvedValue({}),
+        }),
+    };
+});
+
+const sqsMock = jest.fn();
+awsSdkHelper.initializeSqsClient.mockImplementation(() => {
+    return {
+        getQueueUrl: sqsMock.mockReturnValue({
+            promise: jest.fn().mockResolvedValue({ QueueUrl: 'fake-url' }),
+        }),
+        sendMessage: sqsMock.mockReturnValue({
+            promise: jest.fn().mockResolvedValue({ message: 'mock' }),
         }),
     };
 });
@@ -80,8 +92,8 @@ const unfollower = {
     screen_name: 'zzz',
 };
 
-function withAsOfDate(obj, asOfDate) {
-    return { ...obj, asOfDate };
+function withAsOfDateTime(obj, asOfDateTime) {
+    return { ...obj, asOfDateTime };
 }
 function withUserId(user) {
     return { ...user, userId: user.id_str };
@@ -91,7 +103,7 @@ test('happy path', async () => {
     for (const user of [...mockUsers, unfollower]) {
         const params = {
             TableName,
-            Item: withAsOfDate(withUserId(user), previousDate),
+            Item: withAsOfDateTime(withUserId(user), previousDateTime),
         };
         await dynamo.put(params).promise();
     }
@@ -100,18 +112,22 @@ test('happy path', async () => {
     expect(followers).toStrictEqual(mockUsers);
 
     const result = await dynamo.scan({ TableName }).promise();
-    const expectedUnfollower = withAsOfDate(
+    const expectedUnfollower = withAsOfDateTime(
         withUserId(unfollower),
-        previousDate
+        previousDateTime
     );
     const expectedFollowers = mockUsers.map((user) =>
-        withAsOfDate(withUserId(user), currentDate)
+        withAsOfDateTime(withUserId(user), currentDateTime)
     );
     const expected = [...expectedFollowers, expectedUnfollower];
 
     expect(result.Items).toIncludeSameMembers(expected);
 
-    const unfollowers = await reconcileHandler(null);
+    const event = {
+        Records: [{ body: JSON.stringify({ asOfDateTime: currentDateTime }) }],
+    };
+
+    const unfollowers = await reconcileHandler(event);
 
     expect(unfollowers).toIncludeSameMembers([expectedUnfollower]);
 
@@ -120,4 +136,7 @@ test('happy path', async () => {
 
     expect(snsMock.mock.calls.length).toBe(1);
     expect(snsMock.mock.calls[0][0].Message).toContain(unfollower.screen_name);
+
+    expect(sqsMock.mock.calls.length).toBe(2);
+    expect(JSON.stringify(sqsMock.mock.calls[1][0])).toContain(currentDateTime);
 });

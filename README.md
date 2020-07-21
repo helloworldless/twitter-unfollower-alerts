@@ -29,6 +29,7 @@ Look into publishing an SQS message in `update-current-followers` and having
 ### Access
 
 - Neither lambda has access to DynamoDB - need to add policy manually for both
+- `update-current-followers` doesn't have access to SQS - need to add policy manually for now
 - `reconcile-and-email` doesn't have access to SNS - need to add policy manually for now
 
 ### Other

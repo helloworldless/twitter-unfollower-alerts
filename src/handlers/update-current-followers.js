@@ -1,13 +1,24 @@
 const { initializeTwitterClient } = require('../twitter-helper');
 
-const { getCurrentDate, dynamoTableName, getEnv } = require('../util');
+const {
+    getCurrentDateTime,
+    dynamoTableName,
+    getEnv,
+    sqsQueueName,
+} = require('../util');
 
-const { initializeDynamoClient } = require('../aws-sdk-helper');
+const {
+    initializeDynamoClient,
+    initializeSqsClient,
+} = require('../aws-sdk-helper');
+
 const dynamo = initializeDynamoClient();
+const sqs = initializeSqsClient();
 
 const cursorSignalEnd = '0';
 const TableName = dynamoTableName;
-const currentDate = getCurrentDate();
+const QueueName = sqsQueueName;
+const currentDate = getCurrentDateTime();
 
 const screen_name = getEnv('TWITTER_HANDLE');
 
@@ -43,13 +54,36 @@ exports.handler = async (event) => {
         }
 
         console.log(
-            `For asOfDate=${currentDate} follower count=${followers.length}`
+            `For asOfDateTime=${currentDate} follower count=${followers.length}`
         );
 
         for (const follower of followers) {
-            // If follower already exists, we overwrite with new asOfDate; If new, save with asOfDate
+            // If follower already exists, we overwrite with new asOfDateTime; If new, save with asOfDateTime
             await saveFollower(follower, currentDate);
         }
+
+        console.log(`Started - Getting QueueUrl for QueueName=${QueueName}`);
+        const queueUrlResponse = await sqs.getQueueUrl({ QueueName }).promise();
+        console.log(
+            `Completed - Getting queue URL for QueueName=${QueueName}; QueueUrl=${queueUrlResponse.QueueUrl}`
+        );
+
+        const msg = { asOfDateTime: currentDate };
+
+        const messageParams = {
+            MessageBody: JSON.stringify(msg),
+            QueueUrl: queueUrlResponse.QueueUrl,
+        };
+
+        console.log(`Started - Sending message on QueueName=${QueueName}`);
+        const sendMessageResponse = await sqs
+            .sendMessage(messageParams)
+            .promise();
+        console.log(
+            'SQS sendMessage response',
+            JSON.stringify(sendMessageResponse, null, 2)
+        );
+        console.log(`Completed - Sending message on QueueName=${QueueName}`);
 
         return followers;
     } catch (e) {
@@ -68,7 +102,7 @@ function populateUniqueFollowers(users) {
     }
 }
 
-async function saveFollower(follower, asOfDate) {
+async function saveFollower(follower, asOfDateTime) {
     const { id_str, name, screen_name } = follower;
     const params = {
         TableName,
@@ -77,7 +111,7 @@ async function saveFollower(follower, asOfDate) {
             name,
             screen_name,
             userId: id_str,
-            asOfDate,
+            asOfDateTime,
         },
     };
     await dynamo.put(params).promise();

@@ -24,10 +24,11 @@ Resources:
       Runtime: nodejs12.x
       Handler: src/handlers/reconcile-and-email.handler
       Events:
-        CloudWatchEvent:
-          Type: Schedule
+        ProcessingEvent:
+          Type: SQS
           Properties:
-            Schedule: cron(30 22 * * ? *)
+            Queue: !GetAtt HandoffQueue.Arn
+            BatchSize: 10
       MemorySize: 128
       Timeout: 100
 
@@ -47,4 +48,9 @@ Resources:
     Properties:
       Endpoint: <replace with your email address>
       Protocol: email
-      TopicArn: !Ref 'UnfollowerAlertTopic'
+      TopicArn: !Ref UnfollowerAlertTopic
+  HandoffQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: HandoffQueue
+      VisibilityTimeout: 600
