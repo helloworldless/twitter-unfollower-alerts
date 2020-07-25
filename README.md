@@ -9,6 +9,11 @@ Get a daily email digest of Twitter unfollowers. Built with AWS Lambda, DynamoDB
 
 ## Issues/Caveats
 
+### New
+- Test broken, need to switch tests to run with `ts-jest`
+- Env vars need to be added manaually, add .env file which isn't checked in
+- Clean up the original issues list below!
+
 ### Prerequisites
 
 - AWS account
