@@ -45,6 +45,10 @@ Look into publishing an SQS message in `update-current-followers` and having
 - Email address needs to be added in `template.yml`. Should prob env var for consistency
  and to prevent people from accidentally committing their personal email address. 
 
+`aws lambda update-function-configuration --function-name twitter-unfollower-alerts-dev-reconcileAndEmail --environment Variables={AWS_ACCOUNT_ID=}`
+
+`aws lambda update-function-configuration --function-name twitter-unfollower-alerts-dev-updateCurrentFollowers --environment Variables={TWITTER_HANDLE=,TWITTER_KEY=,TWITTER_SECRET=}`
+
 ### SNS Subscription
 
 Must confirm SNS subscription by clicking link in email: **AWS Notification - Subscription Confirmation**.

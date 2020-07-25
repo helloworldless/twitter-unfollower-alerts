@@ -1,24 +1,13 @@
-const {
-    initializeDynamoClient,
-    initializeSnsClient,
-} = require('../aws-sdk-helper');
-
-const {
-    dynamoTableName,
-    twitterUserToString,
-    getEnv,
-} = require('../util');
+import { dynamoTableName, getEnv, twitterUserToString } from '../util';
+import { initializeDynamoClient, initializeSnsClient } from '../aws-sdk-helper';
+import { Follower } from '../types';
 
 const dynamo = initializeDynamoClient();
 const sns = initializeSnsClient();
 
 const TableName = dynamoTableName;
 
-const region = getEnv('AWS_REGION');
-const accountId = getEnv('AWS_ACCOUNT_ID');
-const topic = 'UnfollowerAlertTopic';
-
-const topicArn = `arn:aws:sns:${region}:${accountId}:${topic}`;
+const TopicArn = getEnv('SNS_TOPIC_ARN');
 
 exports.handler = async (event) => {
     try {
@@ -26,7 +15,7 @@ exports.handler = async (event) => {
         const { asOfDateTime } = JSON.parse(event.Records[0].body);
 
         console.log(`asOfDateTime=${asOfDateTime}`);
-        const unfollowers = await findUnfollowers(asOfDateTime);
+        const unfollowers: Follower[] = await findUnfollowers(asOfDateTime);
         console.log(`Found count=${unfollowers.length} unfollowers`);
 
         const unfollowersMessage = unfollowers.length
@@ -35,11 +24,11 @@ exports.handler = async (event) => {
         console.log('unfollowersMessage', unfollowersMessage);
 
         const params = {
-            TopicArn: topicArn,
+            TopicArn: TopicArn,
             Message: unfollowersMessage,
         };
 
-        console.log(`Publish SNS message to topic=${topic}`);
+        console.log(`Publish SNS message to topic=${TopicArn}`);
         const result = await sns.publish(params).promise();
         console.log('SNS publish result: ', JSON.stringify(result, null, 2));
 
@@ -55,7 +44,7 @@ exports.handler = async (event) => {
     }
 };
 
-async function findUnfollowers(asOfDateTime) {
+async function findUnfollowers(asOfDateTime): Promise<Follower[]> {
     const findUnfollowersParams = {
         TableName,
         FilterExpression: 'asOfDateTime < :asOfDateTime',
@@ -70,7 +59,7 @@ async function findUnfollowers(asOfDateTime) {
         );
     }
 
-    return unfollowers.Items;
+    return unfollowers.Items as Follower[];
 }
 
 async function deleteUnfollowers(unfollowers) {

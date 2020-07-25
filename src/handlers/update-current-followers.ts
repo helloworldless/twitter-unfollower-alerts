@@ -1,16 +1,13 @@
-const { initializeTwitterClient } = require('../twitter-helper');
-
-const {
-    getCurrentDateTime,
+import { User } from 'twitter-d';
+import {
     dynamoTableName,
+    getCurrentDateTime,
     getEnv,
     sqsQueueName,
-} = require('../util');
-
-const {
-    initializeDynamoClient,
-    initializeSqsClient,
-} = require('../aws-sdk-helper');
+} from '../util';
+import { initializeTwitterClient } from '../twitter-helper';
+import { initializeDynamoClient, initializeSqsClient } from '../aws-sdk-helper';
+import { Follower } from '../types';
 
 const dynamo = initializeDynamoClient();
 const sqs = initializeSqsClient();
@@ -18,20 +15,26 @@ const sqs = initializeSqsClient();
 const cursorSignalEnd = '0';
 const TableName = dynamoTableName;
 const QueueName = sqsQueueName;
-const currentDate = getCurrentDateTime();
 
 const screen_name = getEnv('TWITTER_HANDLE');
 
-const followers = [];
-const seen = new Set();
+export async function handler(event) {
+    const currentDate = getCurrentDateTime();
+    const followers: User[] = [];
+    const seen = new Set();
 
-exports.handler = async (event) => {
     try {
         console.log('Event', JSON.stringify(event, null, 2));
+        console.log('SNS_TOPIC_ARN', getEnv('SNS_TOPIC_ARN'));
         const client = await initializeTwitterClient();
 
         console.log('Started - Fetching followers (initial)');
-        const response = await client.get('followers/list', { screen_name });
+        const response = await client.get<{
+            users: User[];
+            next_cursor_str: string;
+        }>('followers/list', {
+            screen_name,
+        });
         console.log('Completed - Fetching followers (initial)');
 
         populateUniqueFollowers(response.users);
@@ -85,34 +88,33 @@ exports.handler = async (event) => {
         );
         console.log(`Completed - Sending message on QueueName=${QueueName}`);
 
-        return followers;
+        return followers.map(({ id_str }) => id_str);
+
+        function populateUniqueFollowers(users: User[]) {
+            for (const user of users) {
+                if (!seen.has(user.id_str)) {
+                    followers.push(user);
+                    seen.add(user.id_str);
+                }
+            }
+        }
+
+        async function saveFollower(follower, asOfDateTime) {
+            const { id_str, name, screen_name } = follower;
+            const params = {
+                TableName,
+                Item: {
+                    id_str,
+                    name,
+                    screen_name,
+                    userId: id_str,
+                    asOfDateTime,
+                } as Follower,
+            };
+            await dynamo.put(params).promise();
+        }
     } catch (e) {
-        console.error(e);
-        console.error(JSON.stringify(e));
+        console.error('Error', JSON.stringify(e));
         throw e;
     }
-};
-
-function populateUniqueFollowers(users) {
-    for (const user of users) {
-        if (!seen.has(user.id_str)) {
-            followers.push(user);
-            seen.add(user.id_st);
-        }
-    }
-}
-
-async function saveFollower(follower, asOfDateTime) {
-    const { id_str, name, screen_name } = follower;
-    const params = {
-        TableName,
-        Item: {
-            id_str,
-            name,
-            screen_name,
-            userId: id_str,
-            asOfDateTime,
-        },
-    };
-    await dynamo.put(params).promise();
 }

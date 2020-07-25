@@ -1,0 +1,82 @@
+service: twitter-unfollower-alerts
+
+plugins:
+  - serverless-plugin-typescript
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+
+  stage: dev
+  region: us-east-1
+  environment:
+    DYNAMODB_TABLE: ${self:service}-${opt:stage, self:provider.stage}
+    SQS_QUEUE: ${self:service}-${opt:stage, self:provider.stage}
+    SNS_TOPIC: ${self:service}-${opt:stage, self:provider.stage}
+    SNS_TOPIC_ARN: !Ref UnfollowerAlertTopic # try this again, before failed with !Ref UnfollowerAlertTopic.Arn
+    # arn:aws:sns:${self:provider.region}:${accountId}:${self:provider.environment.SNS_TOPIC}`
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.DYNAMODB_TABLE}"
+    - Effect: Allow
+      Action:
+        - sqs:GetQueueUrl
+        - sqs:SendMessage
+      Resource: !GetAtt HandoffQueue.Arn
+    - Effect: Allow
+      Action:
+        - sns:Publish
+      Resource: !Ref UnfollowerAlertTopic
+
+functions:
+  updateCurrentFollowers:
+    handler: src/handlers/update-current-followers.handler
+    events:
+      - schedule: cron(0 22 * * ? *)
+  reconcileAndEmail:
+    handler: src/handlers/reconcile-and-email.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - HandoffQueue
+              - Arn
+
+resources:
+  Resources:
+    FollowersTable:
+      Type: AWS::DynamoDB::Table
+      DeletionPolicy: Retain
+      Properties:
+        TableName: ${self:provider.environment.DYNAMODB_TABLE}
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+    UnfollowerAlertTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: ${self:provider.environment.SNS_TOPIC}
+    UnfollowerAlertSubscription:
+      Type: AWS::SNS::Subscription
+      Properties:
+        Endpoint: busyweekatwork@gmail.com
+        Protocol: email
+        TopicArn: !Ref UnfollowerAlertTopic
+    HandoffQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:provider.environment.SQS_QUEUE}
+        VisibilityTimeout: 600
