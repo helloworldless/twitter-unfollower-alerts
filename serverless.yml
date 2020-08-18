@@ -72,7 +72,7 @@ resources:
     UnfollowerAlertSubscription:
       Type: AWS::SNS::Subscription
       Properties:
-        Endpoint: busyweekatwork@gmail.com
+        Endpoint:
         Protocol: email
         TopicArn: !Ref UnfollowerAlertTopic
     HandoffQueue:

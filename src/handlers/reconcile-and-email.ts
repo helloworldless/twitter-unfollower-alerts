@@ -18,22 +18,29 @@ exports.handler = async (event) => {
         const unfollowers: Follower[] = await findUnfollowers(asOfDateTime);
         console.log(`Found count=${unfollowers.length} unfollowers`);
 
-        const unfollowersMessage = unfollowers.length
-            ? unfollowers.map(twitterUserToString).join('\n')
-            : 'No unfollowers since yesterday!';
-        console.log('unfollowersMessage', unfollowersMessage);
-
-        const params = {
-            TopicArn: TopicArn,
-            Message: unfollowersMessage,
-        };
-
-        console.log(`Publish SNS message to topic=${TopicArn}`);
-        const result = await sns.publish(params).promise();
-        console.log('SNS publish result: ', JSON.stringify(result, null, 2));
-
         if (unfollowers.length) {
+            const unfollowersMessage = unfollowers
+                .map(twitterUserToString)
+                .join('\n');
+            console.log('unfollowersMessage', unfollowersMessage);
+
+            const params = {
+                TopicArn: TopicArn,
+                Message: unfollowersMessage,
+            };
+
+            console.log(`Publish SNS message to topic=${TopicArn}`);
+            const result = await sns.publish(params).promise();
+            console.log(
+                'SNS publish result: ',
+                JSON.stringify(result, null, 2)
+            );
+
             await deleteUnfollowers(unfollowers);
+        } else {
+            console.log(
+                'No unfollowers since yesterday! Skipping publishing of SNS message'
+            );
         }
 
         return unfollowers;

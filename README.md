@@ -4,8 +4,7 @@ Get a daily email digest of Twitter unfollowers. Built with AWS Lambda, DynamoDB
 
 ## Deploy
 
-1. Run `sam build`
-1. Run `sam deploy`
+1. Run `yarn deploy`
 
 ## Issues/Caveats
 
